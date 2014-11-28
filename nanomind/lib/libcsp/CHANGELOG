@@ -1,0 +1,49 @@
+libcsp 1.x, xxxx-xx-xx
+----------------------
+- New: CMP service for peek and poke of memory
+
+libcsp 1.1, 2012-08-24
+----------------------
+- Feature release
+- Defacto stable since Feb 2012
+- New: I2C interface
+- New: KISS interface
+- New: USART drivers for Linux, Mac and Windows
+- New: Windows/MinGW support
+- New: MacOSX support
+- New: Interface register function
+- New: Interface search function
+- New: CMP service for remote route updating
+- New: CMP service for interface statistics
+- Improvement: Better QoS support
+- Improvement: Send RDP control messages with high priority
+- Improvement: WAF distcheck now works
+- Improvement: Automatic endian discovery
+- Improvement: Accept packets with CRC32 checksum if compiled without CRC32 support
+- Improvement: Do not wake the router task if RDP is not enabled
+- Improvement: Save 102 bytes of RAM by packing route entries
+- Cleanup: Simplify CAN configuration
+- Cleanup: Move architecture specific code to src/arch
+- Bugfix: CSP_MEMFREE gives wrong answer on freertos AVR due to truncation
+- Bugfix: Fixed wrong 64-bit size_t in csp_service_handler
+- Bugfix: Fixed problem in csp_if_kiss when out of buffers
+- Bigfix: Handle bus-off CAN IRQ for AT90CAN128
+
+libcsp 1.0.1, 2011-10-30
+------------------------
+- Hotfix release
+- Bugfix: missing extern in csp_if_lo.h
+
+libcsp 1.0, 2011-10-24
+----------------------
+- First official release
+- New: CSP 32-bit header 1.0
+- Features: Network Router with promiscous mode, broadcast and QoS
+- Features: Connection-oriented transport protocol w. flow-control
+- Features: Connection-less "UDP" like transport
+- Features: Encryption, Authentication and message check
+- Features: Loopback interface
+- Features: Python Bindings
+- Features: CAN interface w. drivers for several chips
+- Features: CSP-services (ping, reboot, uptime, memfree, buffree, ident)
+

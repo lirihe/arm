@@ -1,0 +1,6 @@
+LIBIO
+-----
+
+This library contains client side code for several Gomspace subsystems such as the NanoMind, NanoCom, NanoPower, NanoCam and NanoHUB.
+Furthermore it contains the FTP server/client implementation used for file transfer in CSP-Term and on the NanoMind and NanoCam.
+

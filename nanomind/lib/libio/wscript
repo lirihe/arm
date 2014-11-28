@@ -1,0 +1,123 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
+import os
+
+APPNAME = 'libio'
+VERSION = '1.0'
+
+def options(ctx):
+	ctx.load('gcc')
+
+	ctx.add_option('--toolchain', action='store', default='', help='Set toolchain prefix')
+	ctx.add_option('--arch', default='x86', help='Set architechture [x86, avr32, arm, avr]')
+	ctx.add_option('--mcu', default='', help='Set CPU type [atmega128 atmega1281 uc3a0512 uc3b0256 ap7000]')
+
+	gr = ctx.add_option_group('libio options')
+	gr.add_option('--enable-ftp-server', action='store_true', help='Enable FTP server')
+	gr.add_option('--enable-ftp-client', action='store_true', help='Enable FTP client (posix only)')
+	gr.add_option('--install-io', action='store_true', help='Installs IO headers and lib')
+
+	gr.add_option('--enable-nanomind-client', action='store_true', help='Enable client code for NanoMind')
+	gr.add_option('--enable-nanohub-client', action='store_true', help='Enable client code for NanoHub')
+	gr.add_option('--enable-nanopower-client', action='store_true', help='Enable client code for NanoPower')
+	gr.add_option('--enable-nanopower2-client', action='store_true', help='Enable client code for NanoPower2')
+	gr.add_option('--enable-nanopower-slave-client', action='store_true', help='Enable client code for NanoPower I2C slave')
+	gr.add_option('--enable-bpx-client', action='store_true', help='Enable client code for NanoPower bp-x')
+	gr.add_option('--enable-nanocom-client', action='store_true', help='Enable client code for NanoCom')
+	gr.add_option('--enable-nanocam-client', action='store_true', help='Enable client code for NanoCam')
+	gr.add_option('--enable-csp-client', action='store_true', help='Enable client code for CSP')
+	gr.add_option('--enable-sns', action='store_true', help='Enable Static Name Service')
+
+	gr.add_option('--enable-if-sia', action='store_true', help='Enable Interface SIA')
+
+def configure(ctx):
+	ctx.env.CC = ctx.options.toolchain + "gcc"
+	ctx.env.AR = ctx.options.toolchain + "ar"
+	ctx.find_program(ctx.options.toolchain + 'size', var='SIZE')
+	ctx.load('gcc')
+
+	if ctx.options.enable_nanomind_client:
+		ctx.env.append_unique('FILES_IO',	['src/io/nanomind.c', 'src/io/cmd_obc.c'])
+		ctx.define_cond('ENABLE_NANOMIND_CLIENT', ctx.options.enable_nanomind_client)
+
+	if ctx.options.enable_nanohub_client:
+		ctx.env.append_unique('FILES_IO',	['src/io/nanohub.c', 'src/io/cmd_hub.c'])
+		ctx.define_cond('ENABLE_NANOHUB_CLIENT', ctx.options.enable_nanohub_client)
+
+	if ctx.options.enable_nanopower_client:
+		ctx.env.append_unique('FILES_IO',	['src/io/nanopower.c', 'src/io/cmd_eps.c'])
+		ctx.define_cond('ENABLE_NANOPOWER_CLIENT', ctx.options.enable_nanopower_client)
+		
+	if ctx.options.enable_nanopower2_client:
+		ctx.env.append_unique('FILES_IO',	['src/io/nanopower2.c', 'src/io/cmd_eps2.c'])
+		ctx.define_cond('ENABLE_NANOPOWER2_CLIENT', ctx.options.enable_nanopower2_client)
+		
+	if ctx.options.enable_nanopower_slave_client:
+		ctx.env.append_unique('FILES_IO',	['src/io/cmd_eps_slave.c'])
+		ctx.define_cond('ENABLE_NANOPOWER_SLAVE_CLIENT', ctx.options.enable_nanopower_slave_client)
+		
+	if ctx.options.enable_bpx_client:
+		ctx.env.append_unique('FILES_IO',	['src/io/bpx.c', 'src/io/cmd_bpx.c'])
+		ctx.define_cond('ENABLE_BPX_CLIENT', ctx.options.enable_bpx_client)
+
+	if ctx.options.enable_nanocom_client:
+		ctx.env.append_unique('FILES_IO',	['src/io/nanocom.c', 'src/io/cmd_com.c'])
+		ctx.define_cond('ENABLE_NANOCOM_CLIENT', ctx.options.enable_nanocom_client)
+
+	if ctx.options.enable_nanocam_client:
+		ctx.env.append_unique('FILES_IO',	['src/io/nanocam.c', 'src/io/cmd_cam.c'])
+		ctx.define_cond('ENABLE_NANOCAM_CLIENT', ctx.options.enable_nanocam_client)
+
+	if ctx.options.enable_csp_client:
+		ctx.env.append_unique('FILES_IO',	['src/extras/csp_console.c'])
+		ctx.define_cond('ENABLE_CSP_CLIENT', ctx.options.enable_csp_client)
+
+	if ctx.options.enable_if_sia:
+		ctx.env.append_unique('FILES_IO',	['src/extras/csp_if_sia.c'])
+		ctx.define_cond('ENABLE_IF_SIA', ctx.options.enable_if_sia)
+
+	if ctx.options.enable_ftp_server:
+		ctx.env.append_unique('FILES_IO',	['src/ftp/ftp_server.c', 'src/ftp/backend_ram.c'])
+		if ctx.options.enable_fat:
+			ctx.env.append_unique('FILES_IO',	['src/ftp/backend_fat.c'])
+			ctx.env.append_unique('FILES_IO',	['src/ftp/backend_fs.c'])
+		if ctx.options.enable_uffs:
+			ctx.env.append_unique('FILES_IO',	['src/ftp/backend_fs.c'])
+			
+	if ctx.options.enable_ftp_client:
+		ctx.define_cond('ENABLE_FTP_CLIENT', ctx.options.enable_ftp_client)
+		ctx.env.append_unique('FILES_IO',	['src/ftp/ftp_client.c'])
+		ctx.env.append_unique('FILES_IO',	['src/ftp/cmd_ftp.c'])
+		
+	if ctx.options.enable_sns:
+		ctx.define_cond('ENABLE_SNS', ctx.options.enable_sns)
+		ctx.env.append_unique('FILES_IO',	['src/sns/*.c'])
+
+	ctx.write_config_header('include/conf_io.h', top=True, remove=True)
+
+def build(ctx):
+
+	ctx(export_includes='include', name='io_include')
+
+	if ctx.env.FILES_IO:
+
+		install_path = False
+		if ctx.options.install_io:
+			install_path = '${PREFIX}/lib'
+			ctx.install_files('${PREFIX}', ctx.path.ant_glob('include/**/*.h'), relative_trick=True)
+			ctx.install_files('${PREFIX}/include', 'include/conf_io.h', cwd=ctx.bldnode)
+
+		ctx.stlib(source=ctx.path.ant_glob(ctx.env.FILES_IO, excl=ctx.env.EXCLUDES_IO), 
+			target='io', 
+			includes='include',
+			export_includes='include',
+			defines = ctx.env.DEFINES_IO,
+			use='csp storage gomspace io_size include',
+			install_path = install_path,
+		)
+
+		if ctx.options.verbose > 0:
+			ctx(rule='${SIZE} --format=berkeley ${SRC}', source='libio.a', name='io_size', always=True)
+
+

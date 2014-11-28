@@ -1,0 +1,155 @@
+#!/usr/bin/env python
+# encoding: utf-8
+
+import os
+import time
+
+APPNAME = 'libgomspace'
+VERSION = time.strftime("%Y.%m", time.gmtime())
+
+def options(ctx):
+	ctx.load('gcc gas')
+
+	# Global options
+	ctx.add_option('--toolchain', action='store', default='', help='Set toolchain prefix')
+	ctx.add_option('--arch', default='x86', help='Set architechture [x86, avr32, arm, avr]')
+	ctx.add_option('--mcu', default='', help='Set CPU type [atmega128 atmega1281 uc3a0512 uc3b0256 ap7000]')
+
+	# Group options
+	gr = ctx.add_option_group('libgomspace options')
+	gr.add_option('--install-gomspace', action='store_true', help='Installs GOMSPACE headers and lib')
+	gr.add_option('--with-log', action='store', default='color', help='Choose log backend [disable, printf, color, cdh]')
+	gr.add_option('--with-console', metavar='HANDLE', default=1, type=int, help='Choose USART[0,1,2,3] for console')
+	gr.add_option('--console-disable-history', action='store_true', help='Disable console history completely')
+	gr.add_option('--console-history-len', metavar='LEN', default=10, type=int, help='Choose length for history')
+	gr.add_option('--console-input-len', metavar='LEN', default=100, type=int, help='Choose length for input')
+	gr.add_option('--with-i2c', metavar='DRIVER', help='Set driver [twi, pca9665]')
+	gr.add_option('--with-freertos-config', metavar="CONFIG", default=None, help='Set FreeRTOS configuration file')
+	gr.add_option('--enable-supervisor', action='store_true', help='Compile supervisor')
+	gr.add_option('--enable-sdram', action='store_true', help='Enable SDRAM for AVR32 UC3A')
+	gr.add_option('--enable-spi', action='store_true', help='Enable SPI for AVR32 UC3A')
+	gr.add_option('--enable-driver-debug', action='store_true', help='Enable driver debug')
+	gr.add_option('--enable-gosh', action='store_true', help='Compile Gomspace Shell')
+	gr.add_option('--gosh-const', action='store_true', help='Store GOSH commands in const (sorting will be disabled)')
+	gr.add_option('--enable-rpcx', action='store_true', help='Compile Gomspace RPCX')	
+
+def configure(ctx):
+	ctx.env.CC = ctx.options.toolchain + "gcc"
+	ctx.env.AR = ctx.options.toolchain + "ar"
+	ctx.env.AS = ctx.options.toolchain + "gcc"
+	ctx.load('gcc gas')
+	ctx.find_program(ctx.options.toolchain + 'size', var='SIZE')
+
+	# AVR8
+	if ctx.options.arch == 'avr':
+		ctx.env.append_unique('CFLAGS_GOMSPACE', 			['-Os', '-fshort-enums','-std=gnu99','-funsigned-char','-funsigned-bitfields'])
+		ctx.env.append_unique('FILES_GOMSPACE',				['src/dev-avr8/cpu/*.c', 'src/dev-avr8/i2c/*.c', 'src/dev-avr8/usart/*.c', 'src/freertos/**/*.c', 'src/util/**/*.c', ])
+		ctx.env.append_unique('EXCLUDES_GOMSPACE', 			['src/util/clock.c', 'src/util/console_functions.c', 'src/util/strtime.c', 'src/util/error.c'])
+		ctx.env.append_unique('CFLAGS_GOMSPACE',			['-mmcu='+ctx.options.mcu])
+		
+		ctx.env.append_unique('FILES_GOMSPACE', 		['src/dev-avr8/port/**/idle.c'])
+		if ctx.options.mcu == 'atmega128':
+			ctx.env.append_unique('FILES_GOMSPACE', 		['src/dev-avr8/port/port_128.c'])
+		elif ctx.options.mcu == 'atmega1281':
+			ctx.env.append_unique('FILES_GOMSPACE', 		['src/dev-avr8/port/**/port_1281.c'])
+		else:
+			ctx.env.append_unique('FILES_GOMSPACE', 		['src/dev-avr8/port/**/port.c'])
+			
+
+	# X86
+	elif ctx.options.arch == 'x86':
+		ctx.env.append_unique('FILES_GOMSPACE',				['src/dev-pc/**/*.c', 'src/util/**/*.c', 'src/lzo/**/*.c'])
+		ctx.env.append_unique('EXCLUDES_GOMSPACE', 			['src/gosh/console_functions.c', 'src/util/strtime.c', 'src/util/clock.c'])
+		ctx.env.append_unique('DEFINES_GOMSPACE', 			['OS_PC'])
+
+	# ARM
+	elif ctx.options.arch == 'arm':
+		ctx.env.append_unique('FILES_GOMSPACE',				['src/util/*.c', 'src/freertos/*.c', 'src/lzo/*.c', 'src/dev/**/*.c', 'src/dev-arm/**/*.c'])
+
+	# AVR32 / AP7000
+	elif ctx.options.arch == 'avr32':
+		ctx.env.append_unique('FILES_GOMSPACE',				['src/dev-avr32/**/*.c', 'src/dev-avr32/**/*.s', 'src/dev/**/*.c', 'src/freertos/**/*.c', 'src/util/**/*.c', 'src/gosh/**/*.c', 'src/lzo/**/*.c'])
+		ctx.env.append_unique('EXCLUDES_GOMSPACE', 			[])
+		if ctx.options.mcu == 'ap7000':
+			ctx.env.append_unique('EXCLUDES_GOMSPACE', 		['src/dev-avr32/uc3b'])
+		else:
+			ctx.env.append_unique('EXCLUDES_GOMSPACE', 		['src/dev-avr32/ap7000'])
+			if ctx.options.with_i2c == 'twi':
+				ctx.env.append_unique('EXCLUDES_GOMSPACE',	['src/dev-avr32/uc3b/i2c/pca9665_isr.c', 'src/dev/pca9665'])
+			else:
+				ctx.env.append_unique('EXCLUDES_GOMSPACE',	['src/dev-avr32/uc3b/i2c/i2c.c'])
+			if not ctx.options.enable_sdram:
+				ctx.env.append_unique('EXCLUDES_GOMSPACE',	['src/dev-avr32/uc3b/sdram/sdramc_uc3a.c'])
+			if not ctx.options.enable_spi:
+				ctx.env.append_unique('EXCLUDES_GOMSPACE',	['src/dev-avr32/uc3b/spi/*.c'])
+
+		ctx.env.append_unique('ASFLAGS_GOMSPACE',			['-xassembler-with-cpp', '-c'])
+		ctx.env.append_unique('ASFLAGS_GOMSPACE',			['-mpart='+ctx.options.mcu])
+
+	if ctx.options.with_freertos_config:
+		ctx.define('FREERTOS_CONFIG', os.path.abspath(ctx.options.with_freertos_config))
+
+	if ctx.options.enable_supervisor:
+		ctx.define_cond('ENABLE_SUPERVISOR', ctx.options.enable_supervisor)
+		ctx.env.FILES_GOMSPACE.append('src/supervisor/*.c')
+
+	if ctx.options.enable_gosh:
+		ctx.define_cond('ENABLE_GOSH', ctx.options.enable_gosh)
+		ctx.env.FILES_GOMSPACE.append('src/gosh/command.c')
+		ctx.env.FILES_GOMSPACE.append('src/gosh/console.c')
+		ctx.env.FILES_GOMSPACE.append('src/gosh/cmd_dfl.c')
+		
+	if ctx.options.enable_rpcx:
+		ctx.define_cond('ENABLE_RPCX', ctx.options.enable_rpcx)
+		ctx.env.FILES_GOMSPACE.append('src/gosh/rpcx.c')
+	
+	if not ctx.options.console_disable_history:
+		ctx.define_cond('CONSOLE_HISTORY_ENABLE', True)
+	ctx.define('CONSOLE_HISTORY_ELEMENTS', ctx.options.console_history_len)
+	ctx.define('CONSOLE_BUFSIZ', ctx.options.console_input_len)
+	
+		
+	if ctx.options.with_log == 'disable':
+		ctx.define('LOG_DISABLE', '1')
+	elif ctx.options.with_log == 'printf':
+		ctx.define('LOG_PRINTF', '1')
+	elif ctx.options.with_log == 'color':
+		ctx.define('LOG_COLOR', '1')
+	elif ctx.options.with_log == 'cdh':
+		ctx.define('LOG_CDH', '1')
+	else:
+		ctx.fatal('Invalid log backend')
+	
+	ctx.define('USART_CONSOLE', ctx.options.with_console)
+	
+	ctx.define_cond('CONFIG_GOSH_CONST', ctx.options.gosh_const)
+	ctx.define_cond('CONFIG_DRIVER_DEBUG', ctx.options.enable_driver_debug)
+
+	ctx.write_config_header('include/conf_gomspace.h', top=True, remove=True)
+
+def build(ctx):
+
+	install_path = False
+	if ctx.options.install_gomspace:
+		install_path = '${PREFIX}/lib'
+		if ctx.options.with_freertos_config:
+			ctx.install_as('${PREFIX}/include/freertos/config.h', ctx.options.with_freertos_config, cwd=ctx.srcnode)
+		ctx.install_files('${PREFIX}', ctx.path.ant_glob('include/**/*.h'), relative_trick=True)
+		ctx.install_files('${PREFIX}/include', 'include/conf_gomspace.h', cwd=ctx.bldnode)
+
+	ctx.stlib(source=ctx.path.ant_glob(ctx.env.FILES_GOMSPACE, excl=ctx.env.EXCLUDES_GOMSPACE), 
+		features = 'asm',
+		target='gomspace', 
+		includes='include', 
+		asflags = ctx.env.ASFLAGS_GOMSPACE,
+		defines = ctx.env.DEFINES_GOMSPACE,
+		export_includes='include',
+		use='gomspace_size include cdh_include',
+		install_path = install_path,
+	)
+
+	if ctx.options.verbose > 0:
+		ctx(rule='${SIZE} --format=berkeley ${SRC}', source='libgomspace.a', name='gomspace_size', always=True)
+
+def dist(ctx):
+	ctx.excl = 'build/* **/.* **/*.pyc **/*.o **/*~ *.tar.gz lib/'

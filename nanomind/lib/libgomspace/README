@@ -1,0 +1,11 @@
+LIBGOMSPACE
+-----------
+
+This library contains device drivers, freertos and utilities used by GomSpace products.
+
+The device drivers are layered so that platform independant drivers reside in /dev and 
+platform specific drivers in /dev-arm for example.
+
+FreeRTOS is ported and running on AVR8, AVR32, ARM and PC
+
+The gomspace shell is also included in the 'gosh' folder.

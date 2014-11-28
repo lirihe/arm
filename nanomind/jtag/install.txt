@@ -1,0 +1,31 @@
+/** How to install openocd */
+
+apt-get install libusb-dev libftdi-dev git-core build-essential autoconf libtool texinfo
+git clone git://openocd.git.sourceforge.net/gitroot/openocd/openocd
+cd openocd
+git checkout b01e136 //! Note this revision is confirmes to work, the HEAD revision sometimes does not
+./bootstrap
+./configure --enable-ft2232_libftdi --enable-maintainer-mode
+make
+sudo make install
+
+/** How to setup Zylin GDB eclipse plugin */
+
+1. Install Eclipse 3.6 and corresponding CDT or newer. We recommend the Eclipse Classic package
+   http://www.eclipse.org
+2. Eclipse CDT
+   http://www.eclipse.org/cdt
+3. Install Zylin-embedded CDT using the Eclipse Update Site.
+   Follow the example of http://subclipse.tigris.org/install.html except use the Eclipse Update Site http://opensource.zylin.com/zylincdt in place of "http://subclipse.tigris.org/update_1.0.x". 
+
+/** Trouble? */
+Errors with 'No QRY' are most likely due to a missing WE jumper on the flash
+
+Add the following to /etc/udev/rules.d/46-jtagkey.rules:
+
+ATTRS{idProduct}=="cff8", ATTRS{idVendor}=="0403", MODE="666", GROUP="plugdev"
+
+Or on older linux systems:
+BUS!="usb", ACTION!="add", SUBSYSTEM!="usb_device", GOTO="kcontrol_rules_end"
+SYSFS{idProduct}=="cff8", SYSFS{idVendor}=="0403", MODE="664", GROUP="plugdev"
+LABEL="kcontrol_rules_end"
